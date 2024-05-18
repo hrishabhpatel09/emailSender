@@ -13,8 +13,10 @@ router.get('/me',(req,res)=>{
 
 router.post('/readCSV',upload.single('file'),async(req,res)=>{
     //reading file data and saving in dataBase
+    let successCount = 0; // user that are registering now.
+    let errorCount = 0;
     readCsv(req.file.path)
-    .then((data)=>{
+    .then(async(data)=>{
         data.map(async(user)=>{
             const name = user.name;
             const email = user.email;
@@ -22,17 +24,30 @@ router.post('/readCSV',upload.single('file'),async(req,res)=>{
                 name: name,
                 email: email
             })
-            newUser.save().catch(err=>{
-                fs.appendFile('./errors.csv',`${user.name},${err.errorResponse.errmsg}\n`,()=>{});
-                });
+            newUser.save()
+            .then(()=>{
+                successCount++;
             })
-    })
-    //deleting the file after the job is done
-    fs.unlink(req.file.path,(err)=>{
-        console.log(err)
-    })
-    
-    res.send('Data uploaded Successfully')
+            .catch(err=>{
+                fs.appendFile('./errors.csv',`${user.name},${err.errorResponse.errmsg}\n`,()=>{});
+                errorCount++;
+            });
+        })
+
+        //deleting the file after the job is done
+        fs.unlink(req.file.path,(err)=>{
+            console.log(err)
+        })
+
+        const AllUsers = await User.find({});
+
+        res.json({
+            success_count: successCount,
+            failed_count: errorCount,
+            total_count: AllUsers.length
+        })
+
+    }) 
 })
 
 export default router
